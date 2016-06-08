@@ -1,4 +1,6 @@
 from . import es_conn
+from .exceptions import IndexConflictError
+from elasticsearch import TransportError
 
 
 class IndexManager(object):
@@ -7,7 +9,10 @@ class IndexManager(object):
 
     # Creates an index on the node.
     def create_index(self, index_name, mapping):
-        return self.conn.indices.create(index=index_name, body=mapping)
+        try:
+            return self.conn.indices.create(index=index_name, body=mapping)
+        except TransportError:
+            raise IndexConflictError(index_name)
 
     # Retrieve an index and its settings on the node.
     def retrieve_index(self, index_name):

@@ -4,6 +4,9 @@ import subprocess
 from es_map_writer import writer
 from importlib import import_module
 from unittest import TestCase
+from es_wrapper import es_conn
+from es_wrapper.index import IndexManager
+from es_wrapper.exceptions import IndexConflictError
 from . import db_conn, INITIAL_DATA, DATABASE_URL
 from .queries import CREATE_TEST_TABLE, POPULATE_TABLE, DROP_TABLES
 
@@ -11,6 +14,8 @@ from .queries import CREATE_TEST_TABLE, POPULATE_TABLE, DROP_TABLES
 class TestIndex(TestCase):
 
     conn = db_conn()
+    es = es_conn()
+    index_name = 'superheroes_index'
 
     def _create_table(self):
         with self.conn.cursor() as c:
@@ -38,6 +43,10 @@ class TestIndex(TestCase):
         if 'superheroes_es_mapping.py' in files:
             subprocess.run([cmd], shell=True, check=True)
 
+    def _clear_indices(self):
+        if self.es.indices.exists([self.index_name]):
+            self.es.indices.delete([self.index_name])
+
     def setUp(self):
         self._create_table()
         self._populate_table()
@@ -45,6 +54,7 @@ class TestIndex(TestCase):
     def tearDown(self):
         self._clear_table()
         self._clear_mapping()
+        self._clear_indices()
 
     def test_bruh(self):
         with self.conn.cursor() as c:
@@ -53,4 +63,11 @@ class TestIndex(TestCase):
 
     def test_create_index(self):
         mapping = self._create_mapping()
-        print(mapping)
+        index = IndexManager()
+        index.create_index(self.index_name, mapping)
+        self.assertTrue(self.es.indices.exists([self.index_name]))
+
+        with self.assertRaises(IndexConflictError) as cm:
+            index.create_index(self.index_name, mapping)
+        excp = cm.exception
+        self.assertEqual(excp.__str__(), "'superheroes_index index already exists on node.'")
