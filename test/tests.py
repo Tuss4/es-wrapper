@@ -71,3 +71,38 @@ class TestIndex(TestCase):
             index.create_index(self.index_name, mapping)
         excp = cm.exception
         self.assertEqual(excp.__str__(), "'superheroes_index index already exists on node.'")
+
+        # Check mapping
+        mappping = self.es.indices.get_mapping([self.index_name])
+        expected = {
+            'id': {'type': 'integer'},
+            'name': {'type': 'string'},
+            'alter_ego': {'type': 'string'},
+        }
+        self.assertEqual(mapping['mappings']['hero_document']['properties'], expected)
+
+    def test_retrieve_index(self):
+        mapping = self._create_mapping()
+        index = IndexManager()
+        index.create_index(self.index_name, mapping)
+        self.assertTrue(self.es.indices.exists([self.index_name]))
+
+        # Retrieve index
+        dex = index.retrieve_index(self.index_name)
+        actual = dex['superheroes_index']['mappings']['hero_document']['properties']
+        expected = {
+            'id': {'type': 'integer'},
+            'name': {'type': 'string'},
+            'alter_ego': {'type': 'string'},
+        }
+        self.assertEqual(actual, expected)
+
+    def test_delete_index(self):
+        mapping = self._create_mapping()
+        index = IndexManager()
+        index.create_index(self.index_name, mapping)
+        self.assertTrue(self.es.indices.exists([self.index_name]))
+
+        # Delete index
+        index.delete_index(self.index_name)
+        self.assertFalse(self.es.indices.exists([self.index_name]))
